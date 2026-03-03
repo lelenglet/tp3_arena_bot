@@ -25,7 +25,7 @@ use crate::state::GameState;
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const SERVER_URL: &str = "ws://conflicts-posing-classifieds-resistance.trycloudflare.com/ws";
+const SERVER_URL: &str = "ws://respond-comm-moscow-libs.trycloudflare.com/ws";
 const TEAM_NAME: &str = "les_chèvres";
 const AGENT_NAME: &str = "mineur_chevre";
 const NUM_MINERS: usize = 4;

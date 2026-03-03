@@ -89,9 +89,52 @@ impl GameState {
      //   - ServerMsg::PowResult { resource_id, .. } → retirer la ressource de la liste.
      //
      // Les autres messages peuvent être ignorés ici.
-//     pub fn update(&mut self, msg: &ServerMsg) {
-//         ...
-//     }
+     pub fn update(&mut self, msg: &ServerMsg) {
+         match msg {
+             ServerMsg::State {
+                 tick,
+                 width,
+                 height,
+                 goal,
+                 obstacles,
+                 resources,
+                 agents,
+             } => {
+                 self.tick = *tick;
+                 self.map_size = (*width, *height);
+                 self.goal = *goal;
+                 self.obstacles = obstacles.clone();
+                 self.resources = resources
+                     .iter()
+                     .map(|(id, x, y, expires_at)| ResourceInfo {
+                         resource_id: *id,
+                         x: *x,
+                         y: *y,
+                         expires_at: *expires_at,
+                     })
+                     .collect();
+                 self.agents = agents
+                     .iter()
+                     .map(|(id, name, team, score, x, y)| AgentInfo {
+                         id: *id,
+                         name: name.clone(),
+                         team: team.clone(),
+                         score: *score,
+                         x: *x,
+                         y: *y,
+                     })
+                     .collect();
+                 if let Some(me) = self.agents.iter().find(|a| a.id == self.agent_id) {
+                     self.position = (me.x, me.y);
+                 }
+                 
+             }
+             ServerMsg::PowResult { resource_id, .. } => {
+                 self.resources.retain(|r| r.resource_id != *resource_id);
+             }
+             _ => {}
+         }
+     }
 }
 
 // TODO: Définir le type alias SharedState.
