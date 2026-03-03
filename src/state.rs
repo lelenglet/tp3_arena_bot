@@ -55,11 +55,11 @@ pub struct AgentInfo {
 pub struct GameState {
     agent_id: Uuid,
     tick: u64,
-    position: (u16, u16),
+    pub position: (u16, u16),
     map_size: (u16, u16),
     goal: u32,
     obstacles: Vec<(u16, u16)>,
-    resources: Vec<ResourceInfo>,
+    pub resources: Vec<ResourceInfo>,
     agents: Vec<AgentInfo>,
     team_scores: HashMap<String, u32>,
 }

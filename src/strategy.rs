@@ -9,7 +9,7 @@
 
 // TODO: Importer les types nécessaires de state.rs
 // use crate::state::GameState;
-
+use crate::state::GameState;
 // TODO: Définir le trait Strategy.
 //
 // Le trait doit :
@@ -23,7 +23,9 @@
 //     /// Retourne Some((dx, dy)) avec dx, dy ∈ {-1, 0, 1}, ou None pour rester sur place.
 //     fn next_move(&self, state: &GameState) -> Option<(i8, i8)>;
 // }
-
+pub trait Strategy: Send {
+    fn next_move(&self, state: &GameState) -> Option<(i8, i8)>;
+}
 // TODO: Implémenter NearestResourceStrategy.
 //
 // Cette stratégie se dirige vers la ressource la plus proche (distance de Manhattan).
@@ -49,6 +51,47 @@
 //         todo!()
 //     }
 // }
+
+pub struct NearestResourceStrategy;
+
+impl Strategy for NearestResourceStrategy {
+    fn next_move(&self, state: &GameState) -> Option<(i8, i8)> {
+        let nearest = state.resources
+            .iter()
+            .min_by_key(|r| {
+                let dx = (r.x as i16 - state.position.0 as i16).abs();
+                let dy = (r.y as i16 - state.position.1 as i16).abs();
+                dx + dy
+            });
+        
+        match nearest {
+            Some(ri) => {
+                let dx ;
+                if ri.x > state.position.0{
+                    dx = 1;
+                }else if ri.x < state.position.0{
+                    dx = -1;
+                }
+                else{
+                    dx = 0;
+                }
+
+                let dy ;
+                if ri.y > state.position.1{
+                    dy = 1;
+                }else if ri.y < state.position.1{
+                    dy = -1;
+                }
+                else{
+                    dy = 0;
+                }
+                
+                return Some((dx, dy));
+            }
+            None => None,
+        }
+    }
+}
 
 // ─── BONUS : Implémenter d'autres stratégies ────────────────────────────────
 //
