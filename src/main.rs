@@ -21,11 +21,13 @@ use uuid::Uuid;
 
 use protocol::{ClientMsg, ServerMsg};
 
+use crate::state::GameState;
+
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const SERVER_URL: &str = "ws://127.0.0.1:4000/ws";
-const TEAM_NAME: &str = "mon_equipe";
-const AGENT_NAME: &str = "bot_1";
+const SERVER_URL: &str = "ws://conflicts-posing-classifieds-resistance.trycloudflare.com/ws";
+const TEAM_NAME: &str = "les_chèvres";
+const AGENT_NAME: &str = "mineur_chevre";
 const NUM_MINERS: usize = 4;
 
 fn main() {
@@ -92,6 +94,7 @@ fn main() {
     // ─────────────────────────────────────────────────────────────────────
 
     // TODO: Partie 1 — Créer le SharedState (voir state.rs)
+    let state = Arc::new(Mutex::new(GameState::new(agent_id)));
 
     // TODO: Partie 2 — Créer le MinerPool (voir miner.rs)
 
