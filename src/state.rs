@@ -53,89 +53,88 @@ pub struct AgentInfo {
 //   - team_scores: HashMap<String, u32>
 //
 pub struct GameState {
-    agent_id : Uuid,
-    tick : u64,
-    position:(u16,u16),
-    map_size:(u16,u16),
-    goal : u32,
-    obstacles : Vec<(u16,u16)>,
+    agent_id: Uuid,
+    tick: u64,
+    position: (u16, u16),
+    map_size: (u16, u16),
+    goal: u32,
+    obstacles: Vec<(u16, u16)>,
     resources: Vec<ResourceInfo>,
-    agents : Vec<AgentInfo>,
-    team_scores : HashMap<String,u32>
+    agents: Vec<AgentInfo>,
+    team_scores: HashMap<String, u32>,
 }
 
 // TODO: Implémenter GameState.
 //
 impl GameState {
-     /// Crée un état initial avec l'agent_id reçu du serveur.
-     pub fn new(agent_id: Uuid) -> Self {
-         GameState {
-             agent_id,
-             tick: 0,
-             position: (0, 0),
-             map_size: (0, 0),
-             goal: 0,
-             obstacles: vec![],
-             resources: vec![],
-             agents: vec![],
-             team_scores: HashMap::new(),
-         }
-     }
+    /// Crée un état initial avec l'agent_id reçu du serveur.
+    pub fn new(agent_id: Uuid) -> Self {
+        GameState {
+            agent_id,
+            tick: 0,
+            position: (0, 0),
+            map_size: (0, 0),
+            goal: 0,
+            obstacles: vec![],
+            resources: vec![],
+            agents: vec![],
+            team_scores: HashMap::new(),
+        }
+    }
 
-     // Met à jour l'état à partir d'un message serveur.
-     //
-     // Doit gérer au minimum :
-     //   - ServerMsg::State { .. } → mettre à jour tick, position, resources, agents, etc.
-     //     Indice : votre position est dans la liste `agents`, trouvez-la par agent_id.
-     //   - ServerMsg::PowResult { resource_id, .. } → retirer la ressource de la liste.
-     //
-     // Les autres messages peuvent être ignorés ici.
-     pub fn update(&mut self, msg: &ServerMsg) {
-         match msg {
-             ServerMsg::State {
-                 tick,
-                 width,
-                 height,
-                 goal,
-                 obstacles,
-                 resources,
-                 agents,
-             } => {
-                 self.tick = *tick;
-                 self.map_size = (*width, *height);
-                 self.goal = *goal;
-                 self.obstacles = obstacles.clone();
-                 self.resources = resources
-                     .iter()
-                     .map(|(id, x, y, expires_at)| ResourceInfo {
-                         resource_id: *id,
-                         x: *x,
-                         y: *y,
-                         expires_at: *expires_at,
-                     })
-                     .collect();
-                 self.agents = agents
-                     .iter()
-                     .map(|(id, name, team, score, x, y)| AgentInfo {
-                         id: *id,
-                         name: name.clone(),
-                         team: team.clone(),
-                         score: *score,
-                         x: *x,
-                         y: *y,
-                     })
-                     .collect();
-                 if let Some(me) = self.agents.iter().find(|a| a.id == self.agent_id) {
-                     self.position = (me.x, me.y);
-                 }
-                 
-             }
-             ServerMsg::PowResult { resource_id, .. } => {
-                 self.resources.retain(|r| r.resource_id != *resource_id);
-             }
-             _ => {}
-         }
-     }
+    // Met à jour l'état à partir d'un message serveur.
+    //
+    // Doit gérer au minimum :
+    //   - ServerMsg::State { .. } → mettre à jour tick, position, resources, agents, etc.
+    //     Indice : votre position est dans la liste `agents`, trouvez-la par agent_id.
+    //   - ServerMsg::PowResult { resource_id, .. } → retirer la ressource de la liste.
+    //
+    // Les autres messages peuvent être ignorés ici.
+    pub fn update(&mut self, msg: &ServerMsg) {
+        match msg {
+            ServerMsg::State {
+                tick,
+                width,
+                height,
+                goal,
+                obstacles,
+                resources,
+                agents,
+            } => {
+                self.tick = *tick;
+                self.map_size = (*width, *height);
+                self.goal = *goal;
+                self.obstacles = obstacles.clone();
+                self.resources = resources
+                    .iter()
+                    .map(|(id, x, y, expires_at)| ResourceInfo {
+                        resource_id: *id,
+                        x: *x,
+                        y: *y,
+                        expires_at: *expires_at,
+                    })
+                    .collect();
+                self.agents = agents
+                    .iter()
+                    .map(|(id, name, team, score, x, y)| AgentInfo {
+                        id: *id,
+                        name: name.clone(),
+                        team: team.clone(),
+                        score: *score,
+                        x: *x,
+                        y: *y,
+                    })
+                    .collect();
+                if let Some(me) = self.agents.iter().find(|a| a.id == self.agent_id) {
+                    self.position = (me.x, me.y);
+                }
+            }
+            ServerMsg::PowResult { resource_id, .. } => {
+                self.resources.retain(|r| r.resource_id != *resource_id);
+            }
+            _ => {}
+        }
+    }
 }
 
 // TODO: Définir le type alias SharedState.
@@ -144,5 +143,5 @@ impl GameState {
 //
 pub type SharedState = Arc<Mutex<GameState>>;
 pub fn new_shared_state(agent_id: Uuid) -> SharedState {
-     Arc::new(Mutex::new(GameState::new(agent_id)))
+    Arc::new(Mutex::new(GameState::new(agent_id)))
 }

@@ -150,5 +150,6 @@ fn read_server_msg(ws: &mut WsStream) -> Option<ServerMsg> {
 /// Sérialise et envoie un message au serveur.
 fn send_client_msg(ws: &mut WsStream, msg: &ClientMsg) {
     let json = serde_json::to_string(msg).expect("sérialisation échouée");
-    ws.send(Message::Text(json.into())).expect("envoi WS échoué");
+    ws.send(Message::Text(json.into()))
+        .expect("envoi WS échoué");
 }

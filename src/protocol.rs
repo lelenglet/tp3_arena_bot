@@ -7,10 +7,7 @@ use uuid::Uuid;
 #[serde(tag = "type", content = "data")]
 pub enum ServerMsg {
     /// Premier message reçu après connexion.
-    Hello {
-        agent_id: Uuid,
-        tick_ms: u64,
-    },
+    Hello { agent_id: Uuid, tick_ms: u64 },
 
     /// Challenge de minage : trouver un nonce dont le hash a `target_bits` bits de tête à zéro.
     PowChallenge {
@@ -25,10 +22,7 @@ pub enum ServerMsg {
     },
 
     /// Résultat d'un minage : un agent a résolu le challenge.
-    PowResult {
-        resource_id: Uuid,
-        winner: Uuid,
-    },
+    PowResult { resource_id: Uuid, winner: Uuid },
 
     /// Snapshot de l'état du jeu, envoyé à chaque tick.
     ///   - agents : (id, name, team, score, x, y)
@@ -51,14 +45,10 @@ pub enum ServerMsg {
     },
 
     /// Une équipe a atteint le score objectif.
-    Win {
-        team: String,
-    },
+    Win { team: String },
 
     /// Erreur envoyée par le serveur.
-    Error {
-        message: String,
-    },
+    Error { message: String },
 }
 
 // ─── Messages envoyés par le client ─────────────────────────────────────────
@@ -67,10 +57,7 @@ pub enum ServerMsg {
 #[serde(tag = "type", content = "data")]
 pub enum ClientMsg {
     /// S'enregistrer dans l'arène avec un nom d'équipe et un nom d'agent.
-    Register {
-        team: String,
-        name: String,
-    },
+    Register { team: String, name: String },
 
     /// Soumettre une solution de minage (nonce trouvé).
     PowSubmit {
@@ -80,19 +67,11 @@ pub enum ClientMsg {
     },
 
     /// Heartbeat pour maintenir la connexion.
-    Heartbeat {
-        tick: u64,
-    },
+    Heartbeat { tick: u64 },
 
     /// Se déplacer d'une case (dx, dy ∈ {-1, 0, 1}).
-    Move {
-        dx: i8,
-        dy: i8,
-    },
+    Move { dx: i8, dy: i8 },
 
     /// Signaler au serveur qu'on commence/arrête de miner.
-    Mining {
-        resource_id: Uuid,
-        on: bool,
-    },
+    Mining { resource_id: Uuid, on: bool },
 }

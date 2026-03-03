@@ -77,7 +77,14 @@ mod tests {
 
         let nonce = pow_search(seed, tick, resource_id, agent_id, target_bits, 0, 100_000)
             .expect("devrait trouver un nonce avec 4 bits en < 100k essais");
-        assert!(pow_valid(seed, tick, resource_id, agent_id, nonce, target_bits));
+        assert!(pow_valid(
+            seed,
+            tick,
+            resource_id,
+            agent_id,
+            nonce,
+            target_bits
+        ));
     }
 
     #[test]
