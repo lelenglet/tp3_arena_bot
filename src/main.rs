@@ -21,13 +21,15 @@ use uuid::Uuid;
 
 use protocol::{ClientMsg, ServerMsg};
 
+use crate::miner::MinerPool;
 use crate::state::GameState;
+use crate::strategy::{NearestResourceStrategy, Strategy};
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const SERVER_URL: &str = "ws://respond-comm-moscow-libs.trycloudflare.com/ws";
+const SERVER_URL: &str = "ws://localhost:4004/ws";
 const TEAM_NAME: &str = "les_chèvres";
-const AGENT_NAME: &str = "mineur_chevre";
+const AGENT_NAME: &str = "yodelayheehoo";
 const NUM_MINERS: usize = 4;
 
 fn main() {
@@ -94,11 +96,13 @@ fn main() {
     // ─────────────────────────────────────────────────────────────────────
 
     // TODO: Partie 1 — Créer le SharedState (voir state.rs)
-    let state = Arc::new(Mutex::new(GameState::new(agent_id)));
+    let shared_state: Arc<Mutex<GameState>> = state::new_shared_state(agent_id);
 
     // TODO: Partie 2 — Créer le MinerPool (voir miner.rs)
+    let minerpool = MinerPool::new(4);
 
     // TODO: Partie 3 — Créer la stratégie (voir strategy.rs)
+    let strategy: Box<dyn Strategy> = Box::new(NearestResourceStrategy);
 
     // TODO: Partie 4 — Lancer le thread lecteur WS
     //
@@ -109,7 +113,28 @@ fn main() {
     //
     // Le thread lecteur lit les messages, met à jour le state, et forward
     // les messages importants via le channel.
+    // Canal pour : Serveur -> Lecteur -> Principal (Messages entrants)
+    let (tx_in, rx_in) = std::sync::mpsc::channel::<ServerMsg>();
 
+    // Canal pour : Principal -> Lecteur -> Serveur (Messages sortants)
+    let (tx_out, rx_out) = std::sync::mpsc::channel::<ClientMsg>();
+
+    let cloned_state = std::sync::Arc::clone(&shared_state);
+    let cloned_tx = tx_in.clone();
+    thread::spawn(move || loop {
+        match read_server_msg(&mut ws) {
+            Some(message) => {
+                cloned_state.lock().unwrap().update(&message);
+                let _ = cloned_tx.send(message);
+            }
+            None => continue,
+        };
+
+        match rx_out.try_recv() {
+            Ok(message) => send_client_msg(&mut ws, &message),
+            Err(_) => continue,
+        }
+    });
     // TODO: Partie 5 — Boucle principale
     //
     // loop {
@@ -128,7 +153,62 @@ fn main() {
     //     thread::sleep(Duration::from_millis(50));
     // }
 
-    println!("[!] TODO: implémenter la boucle principale");
+    loop {
+        match rx_in.try_recv() {
+            Ok(incoming_response) => match incoming_response {
+                ServerMsg::PowChallenge {
+                    tick,
+                    seed,
+                    resource_id,
+                    x,
+                    y,
+                    target_bits,
+                    expires_at,
+                    value,
+                } => {
+                    let _ = tx_in.send(ServerMsg::PowChallenge {
+                        tick,
+                        seed,
+                        resource_id,
+                        x,
+                        y,
+                        target_bits,
+                        expires_at,
+                        value,
+                    });
+                }
+                ServerMsg::Win { team } => {
+                    println!("{} won", team);
+                    //break;
+                }
+                _ => (),
+            },
+            Err(_) => (),
+        }
+
+        println!("[*] Communication avec mineur");
+        match minerpool.try_recv() {
+            Some(mr) => {
+                let _ = tx_out.send(ClientMsg::PowSubmit {
+                    tick: mr.tick,
+                    resource_id: mr.resource_id,
+                    nonce: mr.resource_id.as_u64_pair().0, // possiblement un truc chelou ici
+                });
+            }
+            None => (),
+        }
+
+        println!("[*] Communication avec strategy");
+        let move_position = strategy.next_move(&shared_state.lock().unwrap());
+        match move_position {
+            Some((dx, dy)) => {
+                let _ = tx_out.send(ClientMsg::Move { dx: dx, dy: dy });
+            }
+            None => (),
+        }
+
+        thread::sleep(Duration::from_millis(50));
+    }
 }
 
 // ─── Fonctions utilitaires (fournies) ───────────────────────────────────────

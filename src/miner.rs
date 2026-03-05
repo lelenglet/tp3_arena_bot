@@ -20,6 +20,8 @@
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
+use std::sync::Arc;
+
 use uuid::Uuid;
 
 use crate::pow::pow_search;
@@ -113,7 +115,7 @@ impl MinerPool {
         let (result_tx, result_rx) = std::sync::mpsc::channel::<MineResult>();
         let wrapped_request_receiver = std::sync::Arc::new(std::sync::Mutex::new(request_rx));
         for _ in 0..n {
-            let cloned_amrm = wrapped_request_receiver.clone();
+            let cloned_amrm = Arc::clone(&wrapped_request_receiver);
             let cloned_tx = result_tx.clone();
             std::thread::spawn(move || loop {
                 let mutex_lock_state = cloned_amrm.lock().unwrap().recv();
@@ -154,7 +156,7 @@ impl MinerPool {
     }
 
     pub fn try_recv(&self) -> Option<MineResult> {
-        match self.receiver.recv() {
+        match self.receiver.try_recv() {
             Ok(res) => Some(res),
             Err(_) => None,
         }

@@ -56,36 +56,32 @@ pub struct NearestResourceStrategy;
 
 impl Strategy for NearestResourceStrategy {
     fn next_move(&self, state: &GameState) -> Option<(i8, i8)> {
-        let nearest = state.resources
-            .iter()
-            .min_by_key(|r| {
-                let dx = (r.x as i16 - state.position.0 as i16).abs();
-                let dy = (r.y as i16 - state.position.1 as i16).abs();
-                dx + dy
-            });
-        
+        let nearest = state.resources.iter().min_by_key(|r| {
+            let dx = (r.x as i16 - state.position.0 as i16).abs();
+            let dy = (r.y as i16 - state.position.1 as i16).abs();
+            dx + dy
+        });
+
         match nearest {
             Some(ri) => {
-                let dx ;
-                if ri.x > state.position.0{
+                let dx;
+                if ri.x > state.position.0 {
                     dx = 1;
-                }else if ri.x < state.position.0{
+                } else if ri.x < state.position.0 {
                     dx = -1;
-                }
-                else{
+                } else {
                     dx = 0;
                 }
 
-                let dy ;
-                if ri.y > state.position.1{
+                let dy;
+                if ri.y > state.position.1 {
                     dy = 1;
-                }else if ri.y < state.position.1{
+                } else if ri.y < state.position.1 {
                     dy = -1;
-                }
-                else{
+                } else {
                     dy = 0;
                 }
-                
+
                 return Some((dx, dy));
             }
             None => None,

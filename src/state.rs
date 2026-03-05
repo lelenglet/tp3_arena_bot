@@ -107,7 +107,7 @@ impl GameState {
                 self.obstacles = obstacles.clone();
                 self.resources = resources
                     .iter()
-                    .map(|(id, x, y, expires_at,value)| ResourceInfo {
+                    .map(|(id, x, y, expires_at, value)| ResourceInfo {
                         resource_id: *id,
                         x: *x,
                         y: *y,
