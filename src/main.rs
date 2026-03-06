@@ -23,7 +23,7 @@ use protocol::{ClientMsg, ServerMsg};
 
 use crate::miner::MinerPool;
 use crate::state::GameState;
-use crate::strategy::{NearestResourceStrategy, Strategy};
+use crate::strategy::{BFSStrategy, Strategy};
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
@@ -99,10 +99,10 @@ fn main() {
     let shared_state: Arc<Mutex<GameState>> = state::new_shared_state(agent_id);
 
     // TODO: Partie 2 — Créer le MinerPool (voir miner.rs)
-    let minerpool = MinerPool::new(4);
+    let minerpool = MinerPool::new(NUM_MINERS);
 
     // TODO: Partie 3 — Créer la stratégie (voir strategy.rs)
-    let strategy: Box<dyn Strategy> = Box::new(NearestResourceStrategy);
+    let strategy: Box<dyn Strategy> = Box::new(BFSStrategy);
 
     // TODO: Partie 4 — Lancer le thread lecteur WS
     //
@@ -113,6 +113,7 @@ fn main() {
     //
     // Le thread lecteur lit les messages, met à jour le state, et forward
     // les messages importants via le channel.
+
     // Canal pour : Serveur -> Lecteur -> Principal (Messages entrants)
     let (tx_in, rx_in) = std::sync::mpsc::channel::<ServerMsg>();
 
@@ -122,18 +123,14 @@ fn main() {
     let cloned_state = std::sync::Arc::clone(&shared_state);
     let cloned_tx = tx_in.clone();
     thread::spawn(move || loop {
-        match read_server_msg(&mut ws) {
-            Some(message) => {
-                cloned_state.lock().unwrap().update(&message);
-                let _ = cloned_tx.send(message);
-            }
-            None => continue,
-        };
-
-        match rx_out.try_recv() {
-            Ok(message) => send_client_msg(&mut ws, &message),
-            Err(_) => continue,
+        while let Ok(message) = rx_out.try_recv() {
+            send_client_msg(&mut ws, &message);
         }
+
+        if let Some(message) = read_server_msg(&mut ws) {
+            cloned_state.lock().unwrap().update(&message);
+            let _ = cloned_tx.send(message);
+        };
     });
     // TODO: Partie 5 — Boucle principale
     //
@@ -152,7 +149,7 @@ fn main() {
     //     // 4. Dormir un peu
     //     thread::sleep(Duration::from_millis(50));
     // }
-
+    let mut last_tick_message = 0;
     loop {
         match rx_in.try_recv() {
             Ok(incoming_response) => match incoming_response {
@@ -160,54 +157,58 @@ fn main() {
                     tick,
                     seed,
                     resource_id,
-                    x,
-                    y,
+                    x: _,
+                    y: _,
                     target_bits,
-                    expires_at,
-                    value,
+                    expires_at: _,
+                    value: _,
                 } => {
-                    let _ = tx_in.send(ServerMsg::PowChallenge {
-                        tick,
-                        seed,
-                        resource_id,
-                        x,
-                        y,
-                        target_bits,
-                        expires_at,
-                        value,
-                    });
+                    if tick > last_tick_message {
+                        minerpool.submit(miner::MineRequest {
+                            seed,
+                            tick,
+                            resource_id,
+                            agent_id,
+                            target_bits,
+                        });
+                        last_tick_message = tick;
+                    }
                 }
                 ServerMsg::Win { team } => {
                     println!("{} won", team);
-                    //break;
+                    break;
                 }
                 _ => (),
             },
             Err(_) => (),
         }
 
-        println!("[*] Communication avec mineur");
+        //println!("[*] Communication avec mineur");
         match minerpool.try_recv() {
             Some(mr) => {
                 let _ = tx_out.send(ClientMsg::PowSubmit {
                     tick: mr.tick,
                     resource_id: mr.resource_id,
-                    nonce: mr.resource_id.as_u64_pair().0, // possiblement un truc chelou ici
+                    nonce: mr.nonce,
                 });
             }
             None => (),
         }
 
-        println!("[*] Communication avec strategy");
-        let move_position = strategy.next_move(&shared_state.lock().unwrap());
+        //println!("[*] Communication avec strategy");
+        let move_position = {
+            let state = shared_state.lock().unwrap();
+            strategy.next_move(&state)
+        };
         match move_position {
             Some((dx, dy)) => {
+                //println!("{}, {}", dx, dy);
                 let _ = tx_out.send(ClientMsg::Move { dx: dx, dy: dy });
             }
             None => (),
         }
 
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(250));
     }
 }
 

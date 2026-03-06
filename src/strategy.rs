@@ -64,28 +64,71 @@ impl Strategy for NearestResourceStrategy {
 
         match nearest {
             Some(ri) => {
-                let dx;
-                if ri.x > state.position.0 {
-                    dx = 1;
-                } else if ri.x < state.position.0 {
-                    dx = -1;
-                } else {
-                    dx = 0;
-                }
-
-                let dy;
-                if ri.y > state.position.1 {
-                    dy = 1;
-                } else if ri.y < state.position.1 {
-                    dy = -1;
-                } else {
-                    dy = 0;
-                }
-
+                let dx = (ri.x as i16 - state.position.0 as i16).signum() as i8;
+                let dy = (ri.y as i16 - state.position.1 as i16).signum() as i8;
+                //println!("{}, {} - {}, {}", ri.x, ri.y, dx, dy);
                 return Some((dx, dy));
             }
             None => None,
         }
+    }
+}
+
+pub struct BFSStrategy;
+use std::collections::{HashSet, VecDeque};
+
+impl Strategy for BFSStrategy {
+    fn next_move(&self, state: &GameState) -> Option<(i8, i8)> {
+        let start = state.position;
+        let obstacles: HashSet<(u16, u16)> = state.obstacles.iter().cloned().collect();
+        let resource_coords: HashSet<(u16, u16)> =
+            state.resources.iter().map(|r| (r.x, r.y)).collect();
+
+        // queue stores: (current_x, current_y, first_step_x, first_step_y)
+        let mut queue = VecDeque::new();
+        let mut visited = HashSet::new();
+        visited.insert(start);
+
+        // Initialize queue with the 4 possible first moves
+        for &(dx, dy) in &[(0, 1), (0, -1), (1, 0), (-1, 0)] {
+            let nx = start.0 as i32 + dx as i32;
+            let ny = start.1 as i32 + dy as i32;
+
+            if nx >= 0 && nx < state.map_size.0 as i32 && ny >= 0 && ny < state.map_size.1 as i32 {
+                let pos = (nx as u16, ny as u16);
+                if !obstacles.contains(&pos) {
+                    queue.push_back((pos, (dx as i8, dy as i8)));
+                    visited.insert(pos);
+                }
+            }
+        }
+
+        while let Some(((curr_x, curr_y), first_step)) = queue.pop_front() {
+            // Check if we reached a resource
+            if resource_coords.contains(&(curr_x, curr_y)) {
+                return Some(first_step);
+            }
+
+            // Explore neighbors
+            for &(dx, dy) in &[(0, 1), (0, -1), (1, 0), (-1, 0)] {
+                let nx = curr_x as i32 + dx as i32;
+                let ny = curr_y as i32 + dy as i32;
+
+                if nx >= 0
+                    && nx < state.map_size.0 as i32
+                    && ny >= 0
+                    && ny < state.map_size.1 as i32
+                {
+                    let next_pos = (nx as u16, ny as u16);
+                    if !visited.contains(&next_pos) && !obstacles.contains(&next_pos) {
+                        visited.insert(next_pos);
+                        queue.push_back((next_pos, first_step));
+                    }
+                }
+            }
+        }
+
+        None // No reachable resources
     }
 }
 

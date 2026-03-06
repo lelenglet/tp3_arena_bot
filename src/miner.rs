@@ -24,7 +24,7 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::pow::pow_search;
+use crate::pow::pow_valid;
 
 /// Requête de minage envoyée aux threads mineurs.
 #[derive(Debug, Clone)]
@@ -114,33 +114,58 @@ impl MinerPool {
         let (request_tx, request_rx) = std::sync::mpsc::channel::<MineRequest>();
         let (result_tx, result_rx) = std::sync::mpsc::channel::<MineResult>();
         let wrapped_request_receiver = std::sync::Arc::new(std::sync::Mutex::new(request_rx));
-        for _ in 0..n {
+        for i in 0..n {
             let cloned_amrm = Arc::clone(&wrapped_request_receiver);
             let cloned_tx = result_tx.clone();
-            std::thread::spawn(move || loop {
-                let mutex_lock_state = cloned_amrm.lock().unwrap().recv();
-                let minerequest = match mutex_lock_state {
-                    Ok(mr) => mr,
-                    Err(_) => break,
-                };
-                let start_nonce = rand::random::<u64>();
-                let pow_result = pow_search(
-                    minerequest.seed.as_str(),
-                    minerequest.tick,
-                    minerequest.resource_id,
-                    minerequest.agent_id,
-                    minerequest.target_bits,
-                    start_nonce,
-                    100000,
-                );
-                if pow_result.is_some() {
-                    let send_result = cloned_tx.send(MineResult {
-                        tick: minerequest.tick,
-                        resource_id: minerequest.resource_id,
-                        nonce: pow_result.unwrap(),
-                    });
-                    if send_result.is_err() {
-                        break;
+            let thread_id = i as u64;
+            let total_threads = n as u64;
+
+            std::thread::spawn(move || {
+                let mut current_req: Option<MineRequest> = None;
+                let mut nonce = thread_id; // Each thread starts at a unique offset
+
+                loop {
+                    // 1. Check for a NEW job without blocking the mining
+                    if let Ok(lock) = cloned_amrm.try_lock() {
+                        if let Ok(new_req) = lock.try_recv() {
+                            current_req = Some(new_req);
+                            nonce = thread_id; // Reset nonce for the new resource
+                        }
+                    }
+
+                    if let Some(ref req) = current_req {
+                        // 2. Mine a batch
+                        // We don't use pow_search here because we want to control the increment
+                        for _ in 0..20_000 {
+                            if pow_valid(
+                                &req.seed,
+                                req.tick,
+                                req.resource_id,
+                                req.agent_id,
+                                nonce,
+                                req.target_bits,
+                            ) {
+                                let _ = cloned_tx.send(MineResult {
+                                    tick: req.tick,
+                                    resource_id: req.resource_id,
+                                    nonce,
+                                });
+                                current_req = None; // Stop mining this one
+                                break;
+                            }
+                            // The magic of striping:
+                            // Thread 0: 0, 4, 8, 12...
+                            // Thread 1: 1, 5, 9, 13...
+                            nonce += total_threads;
+                        }
+                    } else {
+                        // No job? Wait for one (blocking)
+                        if let Ok(lock) = cloned_amrm.lock() {
+                            if let Ok(new_req) = lock.recv() {
+                                current_req = Some(new_req);
+                                nonce = thread_id;
+                            }
+                        }
                     }
                 }
             });
