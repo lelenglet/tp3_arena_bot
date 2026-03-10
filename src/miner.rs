@@ -136,7 +136,7 @@ impl MinerPool {
                     if let Some(ref req) = current_req {
                         // 2. Mine a batch
                         // We don't use pow_search here because we want to control the increment
-                        for _ in 0..20_000 {
+                        for _ in 0..100_000 {
                             if pow_valid(
                                 &req.seed,
                                 req.tick,
